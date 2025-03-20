@@ -9,6 +9,14 @@
 #define RIGHT_SWITCH_PIN 6
 #define LEFT_SWITCH_PIN 5
 
+// Motor Sürücü Pinleri
+#define RPWM 10      // PWM çıkışı olan pin (sağa yön)
+#define LPWM 11      // PWM çıkışı olan pin (sola yön)
+#define R_EN 8       // Sağa yön Enable pin
+#define L_EN 9       // Sola yön Enable pin
+
+#define runPWM 95    // Motor hızı
+
 // Enkoder değişkenleri
 volatile long pulseCount = 0;
 int lastStateCHA;
@@ -23,24 +31,38 @@ ezButton leftSwitch(LEFT_SWITCH_PIN);
 int lastRightState = LOW;
 int lastLeftState = LOW;
 
+bool direction = true; // true -> Sağa, false -> Sola
+
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   pinMode(CHA_PIN, INPUT);
   pinMode(CHB_PIN, INPUT);
   pinMode(CHZ_PIN, INPUT);
 
+  pinMode(RPWM, OUTPUT);
+  pinMode(LPWM, OUTPUT);
+  pinMode(R_EN, OUTPUT);
+  pinMode(L_EN, OUTPUT);
+  
+  digitalWrite(R_EN, HIGH);
+  digitalWrite(L_EN, HIGH);
+
+  analogWrite(RPWM, 0);
+  analogWrite(LPWM, 0);
+
   rightSwitch.setDebounceTime(50);
   leftSwitch.setDebounceTime(50);
 
   attachInterrupt(digitalPinToInterrupt(CHA_PIN), encoderISR, CHANGE);
-}
+  delay(3000); 
+ }
 
 void loop() {
-  // Enkoder verisini oku ve yazdır
-  currentStateCHA = digitalRead(CHA_PIN);
-  currentStateCHB = digitalRead(CHB_PIN);
+  rightSwitch.loop();
+  leftSwitch.loop();
 
+  // Enkoder verisini oku ve yazdır
   Serial.print("Pulse Count: ");
   Serial.println(pulseCount);
 
@@ -51,6 +73,17 @@ void loop() {
 
   // Limit switchleri kontrol et
   checkLimitSwitches();
+
+  // Motor yönünü belirle
+  if (direction) {
+    analogWrite(RPWM, runPWM);
+    analogWrite(LPWM, 0);
+  } else {
+    analogWrite(RPWM, 0);
+    analogWrite(LPWM, runPWM);
+  }
+
+  delay(100);
 }
 
 // Interrupt Service Routine (ISR) - Enkoder okuma
@@ -67,27 +100,20 @@ void encoderISR() {
 
 // Limit switchlerin durum değişikliğini kontrol eden fonksiyon
 void checkLimitSwitches() {
-  rightSwitch.loop();
-  leftSwitch.loop();
-
   int rightState = rightSwitch.getState();
   int leftState = leftSwitch.getState();
 
-  // Sağ limit switch'e basıldığında sayacı sıfırla
-  if (rightState != lastRightState) {
-    if (rightState == HIGH) {
-      Serial.println("Right limit switch: TOUCHED - Counter Reset!");
-      pulseCount = 0;
-    }
-    lastRightState = rightState;
+  // Sağ limit switch'e basıldığında sayacı sıfırla ve sola dön
+  if (rightSwitch.isReleased()) {
+    Serial.println("Right limit switch: TOUCHED - Counter Reset!");
+    pulseCount = 0;
+    direction = false; // Sola dön
   }
 
-  // Sol limit switch'e basıldığında toplam adımı yazdır
-  if (leftState != lastLeftState) {
-    if (leftState == HIGH) {
-      Serial.print("Left limit switch: TOUCHED - Total Steps: ");
-      Serial.println(pulseCount);
-    }
-    lastLeftState = leftState;
+  // Sol limit switch'e basıldığında toplam adımı yazdır ve sağa dön
+  if (leftSwitch.isReleased()) {
+    Serial.print("Left limit switch: TOUCHED - Total Steps: ");
+    Serial.println(pulseCount);
+    direction = true; // Sağa dön
   }
 }
