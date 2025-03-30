@@ -1,67 +1,29 @@
-#define RPWM 10      // PWM çıkışı olan pin (sağa yön)
-#define LPWM 11      // PWM çıkışı olan pin (sola yön)
-#define R_EN 8       // Sağa yön Enable pin
-#define L_EN 9       // Sola yön Enable pin
-
-#define runPWM 75    // Motor hızı
-
 #include <ezButton.h>
 
-#define RIGHT_SWITCH_PIN 6
-#define LEFT_SWITCH_PIN 5
+#define LIMIT_SWITCH_1 0  // Birinci limit switch pini
+#define LIMIT_SWITCH_2 6  // İkinci limit switch pini
+#define LED_PIN 13  // Dahili LED pini
 
-ezButton rightSwitch(RIGHT_SWITCH_PIN);
-ezButton leftSwitch(LEFT_SWITCH_PIN);
-
-bool direction = true; // true -> Sağa, false -> Sola
+ezButton button1(LIMIT_SWITCH_1);
+ezButton button2(LIMIT_SWITCH_2);
+bool ledState = LOW;
 
 void setup() {
-  Serial.begin(9600);
-
-  rightSwitch.setDebounceTime(50);
-  leftSwitch.setDebounceTime(50);
-
-  pinMode(RPWM, OUTPUT);
-  pinMode(LPWM, OUTPUT);
-  pinMode(R_EN, OUTPUT);
-  pinMode(L_EN, OUTPUT);
-  
-  digitalWrite(R_EN, HIGH);
-  digitalWrite(L_EN, HIGH);
-
-  analogWrite(RPWM, 0);
-  analogWrite(LPWM, 0);
-  delay(3000);
+    pinMode(LED_PIN, OUTPUT);
+    Serial.begin(115200);
+    button1.setDebounceTime(50); // Buton titreşimini önlemek için
+    button2.setDebounceTime(50);
 }
 
 void loop() {
-  rightSwitch.loop();
-  leftSwitch.loop();
-
-  Serial.print("Sağ Limit: ");
-  Serial.print(rightSwitch.getState());
-  Serial.print(" | Sol Limit: ");
-  Serial.println(leftSwitch.getState());
-
-  // Buton BIRAKILDIĞINDA yön değiştir
-  if (rightSwitch.isReleased()) {
-    direction = false; // Sola dönecek
-    Serial.println("Sağ limit bırakıldı, SOLA dönüyor...");
-  }
-
-  if (leftSwitch.isReleased()) {
-    direction = true; // Sağa dönecek
-    Serial.println("Sol limit bırakıldı, SAĞA dönüyor...");
-  }
-
-  // Motor yönü değiştir
-  if (direction) {
-    analogWrite(RPWM, runPWM);
-    analogWrite(LPWM, 0);
-  } else {
-    analogWrite(RPWM, 0);
-    analogWrite(LPWM, runPWM);
-  }
-
-  delay(100);
+    button1.loop();
+    button2.loop();
+    
+    if (button1.isReleased() || button2.isReleased()) {
+        ledState = !ledState;
+        digitalWrite(LED_PIN, ledState);
+        Serial.println("LED Toggled");
+        delay(200); // Yanlış tetiklemeleri önlemek için kısa bekleme
+    }
 }
+
